@@ -1,7 +1,11 @@
+import "dotenv/config";
 import express from "express";
+import authRoutes from "./routes/auth.routes";
+
 const app = express();
-const port = Number(process.env.PORT) || 3001;
-app.get("/health", (_req, res) => {
-res.json({ service: "user-service", status: "ok" });
+app.use(express.json());
+app.use("/api/auth", authRoutes);
+
+app.listen(process.env.PORT ?? 3001, () => {
+  console.log("user-service running");
 });
-app.listen(port, () => console.log(`user-service on ${port}`));
