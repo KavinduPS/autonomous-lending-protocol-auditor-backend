@@ -2,6 +2,26 @@ import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import { prisma } from "../config/db";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+};
+
+const createSession = (res: Response, userId: string) => {
+  const token = jwt.sign({ id: userId }, process.env.JWT_SECRET!, {
+    expiresIn: "7d",
+  });
+
+  res.cookie("token", token, {
+    ...cookieOptions,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+};
 
 export const signup = async (req: Request, res: Response) => {
   const { email, password, name } = req.body ?? {};
@@ -60,17 +80,9 @@ export const signin = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET!, {
-      expiresIn: "7d",
-    });
+    createSession(res, user.id);
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-    return res.status(201).json({
+    return res.status(200).json({
       user: { id: user.id, email: user.email, name: user.name },
     });
   } catch (err) {
@@ -79,13 +91,79 @@ export const signin = async (req: Request, res: Response) => {
   }
 };
 
+export const signinWithGoogle = async (req: Request, res: Response) => {
+  const { idToken } = req.body ?? {};
+
+  if (typeof idToken !== "string") {
+    return res.status(400).json({ error: "idToken is required" });
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.sub || !payload.email || !payload.email_verified) {
+      return res.status(401).json({ error: "Invalid Google account" });
+    }
+
+    const email = payload.email.toLowerCase();
+
+    const identity = await prisma.authIdentity.findUnique({
+      where: {
+        provider_providerUserId: {
+          provider: "google",
+          providerUserId: payload.sub,
+        },
+      },
+      include: { user: true },
+    });
+
+    let user = identity?.user ?? null;
+
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { email } });
+
+      if (user) {
+        await prisma.authIdentity.create({
+          data: {
+            userId: user.id,
+            provider: "google",
+            providerUserId: payload.sub,
+          },
+        });
+      } else {
+        user = await prisma.user.create({
+          data: {
+            email,
+            name: payload.name,
+            identities: {
+              create: { provider: "google", providerUserId: payload.sub },
+            },
+          },
+        });
+      }
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({ error: "Account disabled" });
+    }
+
+    createSession(res, user.id);
+
+    return res.status(200).json({
+      user: { id: user.id, email: user.email, name: user.name },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(401).json({ error: "Google verification failed" });
+  }
+};
+
 export const signout = async (req: Request, res: Response) => {
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  res.clearCookie("token", cookieOptions);
   return res.status(204).send();
 };
 
