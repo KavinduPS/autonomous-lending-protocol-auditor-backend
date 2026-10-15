@@ -1,7 +1,21 @@
+import "dotenv/config";
 import express from "express";
+import authRoutes from "./routes/auth.routes";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+
 const app = express();
-const port = Number(process.env.PORT) || 3001;
-app.get("/health", (_req, res) => {
-res.json({ service: "user-service", status: "ok" });
+app.use(express.json());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  }),
+);
+app.use(cookieParser());
+
+app.use("/api/auth", authRoutes);
+
+app.listen(process.env.PORT ?? 3001, () => {
+  console.log("user-service running");
 });
-app.listen(port, () => console.log(`user-service on ${port}`));
