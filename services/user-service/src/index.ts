@@ -14,6 +14,10 @@ app.use(
 );
 app.use(cookieParser());
 
+app.get("/health", (_req, res) => {
+  res.json({ service: "user-service", status: "ok" });
+});
+
 app.use("/api/auth", authRoutes);
 
 app.listen(process.env.PORT ?? 3001, () => {
