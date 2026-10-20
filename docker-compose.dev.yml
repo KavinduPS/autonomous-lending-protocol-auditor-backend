@@ -14,5 +14,89 @@ services:
       interval: 5s
       retries: 5
 
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=${PORT:-3000}
+      - NODE_ENV=${NODE_ENV:-development}
+      - USER_SERVICE_URL=${USER_SERVICE_URL:-http://user-service:3001}
+      - SUBSCRIPTION_SERVICE_URL=${SUBSCRIPTION_SERVICE_URL:-http://subscription-service:3002}
+      - REPORTING_SERVICE_URL=${REPORTING_SERVICE_URL:-http://reporting-service:3003}
+      - STATIC_ANALYSIS_SERVICE_URL=${STATIC_ANALYSIS_SERVICE_URL:-http://static-analysis-service:8001}
+      - RAG_LLM_SERVICE_URL=${RAG_LLM_SERVICE_URL:-http://rag-llm-service:8002}
+      - EXPLOIT_AGENT_SERVICE_URL=${EXPLOIT_AGENT_SERVICE_URL:-http://exploit-agent-service:8003}
+      - SANDBOXED_EXECUTION_SERVICE_URL=${SANDBOXED_EXECUTION_SERVICE_URL:-http://sandboxed-execution-service:8004}
+      - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-key-change-in-production}
+    depends_on:
+      - user-service
+      - subscription-service
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-audit}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-audit_db}?schema=public
+      - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-key-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  subscription-service:
+    build:
+      context: ./services/subscription-service
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  reporting-service:
+    build:
+      context: ./services/reporting-service
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+
+  static-analysis-service:
+    build:
+      context: ./services/static-analysis-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+
+  rag-llm-service:
+    build:
+      context: ./services/rag-llm-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+
+  exploit-agent-service:
+    build:
+      context: ./services/exploit-agent-service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+
+  sandboxed-execution-service:
+    build:
+      context: ./services/sandboxed-execution-service
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+
 volumes:
   pgdata:
