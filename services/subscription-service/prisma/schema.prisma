@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Plan {
+  id            String  @id @default(uuid()) @db.Uuid
+  code          String  @unique
+  stripePriceId String? @unique @map("stripe_price_id")
+  priceMinor    BigInt  @map("price_minor")
+  currency      String  @default("usd")
+
+  creditsPerPeriod    Int     @default(0) @map("credits_per_period")
+  exploitSimulation   Boolean @map("exploit_simulation")
+  extraCreditsAllowed Boolean @default(false) @map("extra_credits_allowed")
+  maxConcurrentAudits Int     @default(1) @map("max_concurrent_audits")
+  queuePriority       String  @default("STANDARD") @map("queue_priority")
+  apiAccess           Boolean @default(false) @map("api_access")
+  isActive            Boolean @default(true) @map("is_active")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model StripeEvent {
+  id            String @id @default(uuid()) @db.Uuid
+  stripeEventId String @unique @map("stripe_event_id")
+  eventType     String @map("event_type")
+  payload       Json   @db.JsonB
+  status        String
+
+  @@map("stripe_events")
+}
+
+model Subscription {
+  id                   String    @id @default(uuid()) @db.Uuid
+  userId               String    @map("user_id") @db.Uuid
+  planId               String    @map("plan_id") @db.Uuid
+  status               String
+  stripeCustomerId     String?   @map("stripe_customer_id")
+  stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
+  currentPeriodEnd     DateTime? @map("current_period_end") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  plan     Plan      @relation(fields: [planId], references: [id])
+  payments Payment[]
+
+  @@index([userId])
+  @@index([planId])
+  @@index([stripeCustomerId])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id              String @id @default(uuid()) @db.Uuid
+  subscriptionId  String @map("subscription_id") @db.Uuid
+  stripeInvoiceId String @unique @map("stripe_invoice_id")
+  status          String
+  amountPaidMinor BigInt @map("amount_paid_minor")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId])
+  @@map("payments")
+}
+
+model CreditBalance {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+
+  planCredits  Int @default(0) @map("plan_credits")
+  extraCredits Int @default(0) @map("extra_credits")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  transactions CreditTransaction[]
+
+  @@map("credit_balances")
+}
+
+model CreditTransaction {
+  id        String @id @default(uuid()) @db.Uuid
+  balanceId String @map("balance_id") @db.Uuid
+
+  type        String
+  bucket      String
+  amount      Int
+  referenceId String? @map("reference_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  balance CreditBalance @relation(fields: [balanceId], references: [id])
+
+  @@index([balanceId])
+  @@index([referenceId])
+  @@map("credit_transactions")
+}
+
+model CreditPack {
+  id   String @id @default(uuid()) @db.Uuid
+  code String @unique
+
+  credits Int
+
+  priceMinor BigInt @map("price_minor")
+  currency   String @default("usd")
+
+  stripePriceId String? @unique @map("stripe_price_id")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  purchases ExtraCreditPurchase[]
+
+  @@map("credit_packs")
+}
+
+model ExtraCreditPurchase {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  packId String @map("pack_id") @db.Uuid
+
+  stripeCheckoutSessionId String  @unique @map("stripe_checkout_session_id")
+  stripePaymentIntentId   String? @unique @map("stripe_payment_intent_id")
+
+  status String @default("pending")
+
+  credits     Int
+  amountMinor BigInt @map("amount_minor")
+  currency    String
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  paidAt    DateTime? @map("paid_at") @db.Timestamptz(6)
+
+  pack CreditPack @relation(fields: [packId], references: [id])
+
+  @@index([userId])
+  @@index([packId])
+  @@map("extra_credit_purchases")
+}
