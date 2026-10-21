@@ -12,10 +12,15 @@ const cookieOptions = {
   sameSite: "lax" as const,
 };
 
-const createSession = (res: Response, userId: string) => {
-  const token = jwt.sign({ id: userId }, process.env.JWT_SECRET!, {
-    expiresIn: "7d",
-  });
+const createSession = (res: Response, user: { id: string; email: string }) => {
+  const token = jwt.sign(
+    { userId: user.id, email: user.email },
+    process.env.JWT_SECRET!,
+    {
+      expiresIn: "7d",
+      algorithm: "HS256",
+    },
+  );
 
   res.cookie("token", token, {
     ...cookieOptions,
@@ -26,9 +31,23 @@ const createSession = (res: Response, userId: string) => {
 export const signup = async (req: Request, res: Response) => {
   const { email, password, name } = req.body ?? {};
 
-  if (typeof email !== "string" || typeof password !== "string") {
-    return res.status(400).json({ error: "Email and password are required" });
+  if (
+    typeof email !== "string" ||
+    typeof password !== "string" ||
+    typeof name !== "string"
+  ) {
+    return res
+      .status(400)
+      .json({ error: "Name, Email and password are required" });
   }
+
+  const trimmedName = name.trim();
+  if (trimmedName.length < 2 || trimmedName.length > 100) {
+    return res
+      .status(400)
+      .json({ error: "Name must be between 2 and 100 characters" });
+  }
+
   if (password.length < 8) {
     return res
       .status(400)
@@ -48,7 +67,7 @@ export const signup = async (req: Request, res: Response) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
-      data: { email: normalizedEmail, passwordHash, name },
+      data: { email: normalizedEmail, passwordHash, name: trimmedName },
       select: { id: true, email: true, name: true, createdAt: true },
     });
 
@@ -80,7 +99,7 @@ export const signin = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    createSession(res, user.id);
+    createSession(res, user);
 
     return res.status(200).json({
       user: { id: user.id, email: user.email, name: user.name },
@@ -151,7 +170,7 @@ export const signinWithGoogle = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Account disabled" });
     }
 
-    createSession(res, user.id);
+    createSession(res, user);
 
     return res.status(200).json({
       user: { id: user.id, email: user.email, name: user.name },
@@ -168,9 +187,15 @@ export const signout = async (req: Request, res: Response) => {
 };
 
 export const profile = async (req: Request, res: Response) => {
+  const userId = req.headers["x-user-id"];
+
+  if (typeof userId !== "string") {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.userId },
+      where: { id: userId },
       select: { id: true, email: true, name: true, createdAt: true },
     });
 

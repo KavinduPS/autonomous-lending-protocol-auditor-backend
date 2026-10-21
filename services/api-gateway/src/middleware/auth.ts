@@ -23,8 +23,7 @@ const PUBLIC_PATHS: Array<{ path: string | RegExp; method?: string }> = [
   { path: "/health/services" },
   { path: "/api/auth/signin", method: "POST" },
   { path: "/api/auth/signup", method: "POST" },
-  { path: "/api/auth/login", method: "POST" },
-  { path: "/api/auth/register", method: "POST" },
+  { path: "/api/auth/signout", method: "POST" },
   { path: "/api/auth/google", method: "POST" },
   { path: "/api/auth/refresh", method: "POST" },
   { path: "/api/plans", method: "GET" },
@@ -32,15 +31,16 @@ const PUBLIC_PATHS: Array<{ path: string | RegExp; method?: string }> = [
 ];
 
 function isPublicRoute(req: Request): boolean {
+  const urlPath = req.originalUrl.split("?")[0];
   return PUBLIC_PATHS.some((route) => {
     const methodMatches =
       !route.method || route.method.toUpperCase() === req.method.toUpperCase();
     if (!methodMatches) return false;
 
     if (typeof route.path === "string") {
-      return req.path === route.path || req.originalUrl.startsWith(route.path);
+      return urlPath === route.path;
     }
-    return route.path.test(req.path);
+    return route.path.test(urlPath);
   });
 }
 
@@ -49,6 +49,10 @@ export function authMiddleware(
   res: Response,
   next: NextFunction,
 ): void {
+  delete req.headers["x-user-id"];
+  delete req.headers["x-user-role"];
+  delete req.headers["x-user-email"];
+
   if (req.method === "OPTIONS") {
     return next();
   }
@@ -57,29 +61,38 @@ export function authMiddleware(
     return next();
   }
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const token = req.cookies?.token;
+  if (!token) {
     res.status(401).json({
       success: false,
       error: {
         code: "UNAUTHORIZED",
-        message:
-          "Authentication token missing or invalid format. Expected 'Bearer <token>'.",
+        message: "Authentication cookie missing.",
       },
       requestId: (req as any).id,
     });
     return;
   }
 
-  const token = authHeader.substring(7);
-
   try {
-    const decoded = jwt.verify(token, config.jwtSecret) as AuthenticatedUser;
+    const decoded = jwt.verify(token, config.jwtSecret, {
+      algorithms: ["HS256"],
+    }) as AuthenticatedUser;
+    if (!decoded.userId) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: "INVALID_TOKEN",
+          message: "Invalid authentication token.",
+        },
+        requestId: (req as any).id,
+      });
+      return;
+    }
+
     req.user = decoded;
 
-    if (decoded.userId) {
-      req.headers["x-user-id"] = decoded.userId;
-    }
+    req.headers["x-user-id"] = String(decoded.userId);
     if (decoded.role) {
       req.headers["x-user-role"] = decoded.role;
     }
@@ -95,7 +108,7 @@ export function authMiddleware(
       error: {
         code: isExpired ? "TOKEN_EXPIRED" : "INVALID_TOKEN",
         message: isExpired
-          ? "Access token has expired."
+          ? "Session has expired."
           : "Invalid authentication token.",
       },
       requestId: (req as any).id,

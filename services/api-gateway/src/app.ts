@@ -9,12 +9,14 @@ import { globalRateLimiter } from "./middleware/rateLimiter";
 import { notFoundHandler, globalErrorHandler } from "./middleware/errorHandler";
 import healthRoutes from "./routes/health.routes";
 import gatewayRoutes from "./routes/gateway.routes";
+import cookieParser from "cookie-parser";
 
 export function createApp(): Express {
   const app = express();
 
   app.set("trust proxy", 1);
 
+  app.use(cookieParser());
   app.use(helmet());
   app.use(
     cors({

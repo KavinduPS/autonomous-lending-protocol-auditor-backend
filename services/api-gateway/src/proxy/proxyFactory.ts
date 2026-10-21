@@ -49,8 +49,7 @@ export function createServiceProxy({
             success: false,
             error: {
               code: "SERVICE_UNAVAILABLE",
-              message: `Downstream service (${target}) is unreachable or timed out.`,
-              details: err.message,
+              message: "Service temporarily unavailable.",
             },
             requestId: req?.id,
           });
