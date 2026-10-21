@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
-import { prisma } from "../config/db";
+import { prisma } from "../config/db.js";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 

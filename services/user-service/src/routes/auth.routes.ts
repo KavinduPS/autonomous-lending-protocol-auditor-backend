@@ -5,8 +5,8 @@ import {
   signinWithGoogle,
   signout,
   signup,
-} from "../controllers/auth.controller";
-import { requireAuth } from "../middleware/auth.middleware";
+} from "../controllers/auth.controller.js";
+import { requireAuth } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
