@@ -1,0 +1,628 @@
+Static Analysis Service
+
+A standalone Python/FastAPI service that compiles submitted Solidity source, runs Slither, and returns structured security findings.
+
+The current prototype accepts one Solidity source file per request and uses Solidity compiler **0.8.24**. It returns source hashes, tool/compiler versions, normalized source locations, and stable finding identifiers.
+
+## Contents
+
+- [Current scope](#current-scope)
+- [Prerequisites](#prerequisites)
+- [Run with Docker](#run-with-docker)
+- [Run locally on Windows](#run-locally-on-windows)
+- [Environment configuration](#environment-configuration)
+- [API and Postman examples](#api-and-postman-examples)
+- [Automated tests](#automated-tests)
+- [Manual Slither checks](#manual-slither-checks)
+- [Project structure](#project-structure)
+- [Processing flow](#processing-flow)
+- [Troubleshooting](#troubleshooting)
+- [Current limitations](#current-limitations)
+
+## Current scope
+
+Implemented capabilities:
+
+- `GET /health` for service liveness.
+- `POST /api/v1/analysis` for synchronous analysis of Solidity source supplied as JSON.
+- Request validation, including a configurable UTF-8 source-size limit.
+- Compilation validation through the Solidity standard JSON interface.
+- Slither's default detector suite.
+- Structured findings with severity, confidence, references, and source locations.
+- SHA-256 source fingerprints and tool/compiler version metadata.
+- Normalization of the temporary source path to `Contract.sol`.
+- Stable finding IDs and preservation of Slither's original IDs.
+- Per-request temporary workspaces and cleanup.
+- Environment configuration, automated tests, and a Linux Docker image.
+
+This service analyzes source code. It does not deploy contracts or perform blockchain transactions. A successful scan with no findings means the enabled detectors reported no findings; it is not a proof that the contract is secure.
+
+## Prerequisites
+
+Choose either Docker execution or local Windows execution. You do not need a host Python installation to run the Docker image.
+
+| Execution method | Requirements                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| Docker           | Docker Desktop running with Linux containers, PowerShell, and internet access for the first build             |
+| Local Windows    | Python 3.14, the Python launcher (`py`), PowerShell, and internet access for installing dependencies/compiler |
+| API testing      | Postman, a browser for Swagger UI, or PowerShell HTTP commands                                                |
+
+The local development environment was verified with Python 3.14.8. The Dockerfile uses `python:3.14-slim`.
+
+The repository must already be cloned. From the backend repository root, enter the service directory:
+
+```powershell
+cd .\services\static-analysis-service
+```
+
+All subsequent commands are run from this directory unless a step says otherwise. Commands in `powershell` blocks belong in the terminal. JSON, dotenv, Python, and Solidity examples belong in their indicated files or request bodies.
+
+## Run with Docker
+
+This runs the API on host port **8001**.
+
+### 1. Start Docker Desktop
+
+Wait until the Docker engine is running. The Dockerfile builds a Linux container.
+
+### 2. Create the environment file
+
+Create `.env` from the committed example if it does not already exist:
+
+```powershell
+if (-not (Test-Path -LiteralPath .\.env)) {
+    Copy-Item -LiteralPath .\.env.example -Destination .\.env
+}
+```
+
+Use these initial values inside `.env`:
+
+```dotenv
+STATIC_ANALYSIS_TIMEOUT_SECONDS=60
+STATIC_COMPILATION_TIMEOUT_SECONDS=30
+STATIC_ANALYSIS_MAX_SOURCE_BYTES=200000
+STATIC_ANALYSIS_WORKSPACE_DIR=workspaces
+SOLC_VERSION=0.8.24
+```
+
+### 3. Build the image
+
+```powershell
+docker build -t static-analysis-service:dev .
+```
+
+The first build downloads the Python image, Python packages, and compiler. The Dockerfile installs Slither and Solidity 0.8.24 and checks both versions during the build. It creates a non-root application user and a writable `/app/workspaces` directory.
+
+### 4. Start the container
+
+```powershell
+docker run --rm --init --env-file .env --name static-analysis-service -p 127.0.0.1:8001:8001 static-analysis-service:dev
+```
+
+Keep this terminal open. Wait for `Application startup complete`.
+
+| Purpose    | Docker URL                                                   |
+| ---------- | ------------------------------------------------------------ |
+| Health     | [http://127.0.0.1:8001/health](http://127.0.0.1:8001/health) |
+| Swagger UI | [http://127.0.0.1:8001/docs](http://127.0.0.1:8001/docs)     |
+| Analysis   | `POST http://127.0.0.1:8001/api/v1/analysis`                 |
+
+Check health from another terminal:
+
+```powershell
+Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8001/health'
+```
+
+The health endpoint checks that the API is running. It does not execute a compiler or Slither scan; use the API examples below to verify analysis.
+
+### 5. Stop or rebuild
+
+Press **Ctrl+C** in the container terminal, or run this in another terminal:
+
+```powershell
+docker stop static-analysis-service
+```
+
+The `--rm` option removes the container after it stops. The image remains available.
+
+After changing application code or dependencies, rebuild the image:
+
+```powershell
+docker build -t static-analysis-service:dev .
+```
+
+After the build succeeds, stop the previous container if it is still running and repeat the `docker run` command. Existing containers do not pick up newly built application code automatically.
+
+To inspect logs while the named container is running:
+
+```powershell
+docker logs static-analysis-service
+```
+
+## Run locally on Windows
+
+This runs the API on port **8000**, separately from the Docker port.
+
+### 1. Create a virtual environment
+
+Check Python availability:
+
+```powershell
+py -3.14 --version
+```
+
+Create `.venv` once:
+
+```powershell
+py -3.14 -m venv .venv
+```
+
+The commands below call the virtual environment's Python directly. Activating the environment is optional.
+
+### 2. Install development dependencies
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+```
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+```
+
+`requirements-dev.txt` includes the runtime requirements, pytest, and `httpx2` for FastAPI's test client. For runtime dependencies only, install `requirements.txt` instead.
+
+Check dependency consistency:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip check
+```
+
+Expected: `No broken requirements found.`
+
+### 3. Install the supported compiler
+
+```powershell
+.\.venv\Scripts\solc-select.exe install 0.8.24
+```
+
+```powershell
+.\.venv\Scripts\solc-select.exe use 0.8.24
+```
+
+Verify the tools:
+
+```powershell
+.\.venv\Scripts\solc.exe --version
+```
+
+```powershell
+.\.venv\Scripts\slither.exe --version
+```
+
+Expected: Solidity `0.8.24` and Slither `0.11.6` with the current requirements file. The compiler version suffix differs between Windows and Linux.
+
+### 4. Create `.env`
+
+If `.env` does not already exist:
+
+```powershell
+if (-not (Test-Path -LiteralPath .\.env)) {
+    Copy-Item -LiteralPath .\.env.example -Destination .\.env
+}
+```
+
+### 5. Start the API
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --env-file .env --host 127.0.0.1 --port 8000
+```
+
+The `--env-file .env` argument loads your file before application startup. The configuration code reads process environment variables; it does not automatically open `.env` itself.
+
+| Purpose    | Local Windows URL                                            |
+| ---------- | ------------------------------------------------------------ |
+| Health     | [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health) |
+| Swagger UI | [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)     |
+| Analysis   | `POST http://127.0.0.1:8000/api/v1/analysis`                 |
+
+Stop the local server with **Ctrl+C**.
+
+### 6. Select the interpreter in VS Code
+
+If VS Code cannot resolve imports such as `pydantic`:
+
+1. Open the Command Palette with **Ctrl+Shift+P**.
+2. Select **Python: Select Interpreter**.
+3. Choose the service's `.venv\Scripts\python.exe`.
+4. If it is absent, choose **Enter interpreter path** and browse to that executable.
+5. Run **Developer: Reload Window** if the editor still shows stale warnings.
+
+## Environment configuration
+
+| Variable                             | Default      | Meaning                                                                                                           |
+| ------------------------------------ | ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `STATIC_ANALYSIS_TIMEOUT_SECONDS`    | `60`         | Timeout for the Slither subprocess                                                                                |
+| `STATIC_COMPILATION_TIMEOUT_SECONDS` | `30`         | Timeout for compilation validation; the compiler-version check uses at most 10 seconds of its own subprocess time |
+| `STATIC_ANALYSIS_MAX_SOURCE_BYTES`   | `200000`     | Maximum size of submitted source after UTF-8 encoding                                                             |
+| `STATIC_ANALYSIS_WORKSPACE_DIR`      | `workspaces` | Directory containing per-request source workspaces; relative values resolve from the service root                 |
+| `SOLC_VERSION`                       | `0.8.24`     | Explicit compiler version; the prototype rejects other configured versions                                        |
+
+Timeout and byte-limit values must be positive integers. An empty workspace setting is invalid. Invalid configuration prevents startup. Settings are cached for the process, so restart the service after changing them.
+
+The Slither and compiler timeouts apply to separate stages; they are not a single deadline for the complete HTTP request.
+
+Keep the default `workspaces` value when using the same `.env` for Windows and Docker. A custom Docker workspace must use a path valid inside the container and be writable by `appuser`; Windows host paths do not identify container directories.
+
+The compiler must be installed in the environment running the application. The service does not provide compiler-installation management or a per-request compiler setting; install the supported version during setup.
+
+## API and Postman examples
+
+Examples below use Docker port **8001**. Use port **8000** for the local Windows server.
+
+### Health
+
+**Request:** `GET http://127.0.0.1:8001/health`
+
+**Expected response:** HTTP 200.
+
+```json
+{
+  "service": "static-analysis-service",
+  "status": "ok"
+}
+```
+
+### Submit source for analysis
+
+In Postman:
+
+1. Select method **POST**.
+2. Enter `http://127.0.0.1:8001/api/v1/analysis`.
+3. Choose **Body > raw > JSON**.
+4. Set `Content-Type: application/json` if Postman does not set it automatically.
+5. Paste one of the request bodies below and click **Send**.
+
+| Request field | Requirement                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `audit_id`    | Required string, 1-100 characters; echoed in the response                                  |
+| `source_code` | Required nonblank string containing Solidity source within the configured UTF-8 byte limit |
+
+`audit_id` is supplied by the caller. The service does not persist audits or enforce unique audit IDs.
+
+#### Example A: vulnerable source
+
+Paste this **request body** into Postman:
+
+```json
+{
+  "audit_id": "example-vulnerable-001",
+  "source_code": "pragma solidity 0.8.24; contract Example { address public owner = msg.sender; function changeOwner(address newOwner) external { require(tx.origin == owner, \"Unauthorized\"); owner = newOwner; } }"
+}
+```
+
+With the current tool version, expected behavior is HTTP **200**, `status: completed`, and two findings:
+
+| Rule                 | Severity | Confidence | Reason                                |
+| -------------------- | -------- | ---------- | ------------------------------------- |
+| `tx-origin`          | Medium   | Medium     | Authorization uses `tx.origin`        |
+| `missing-zero-check` | Low      | Medium     | The new owner can be the zero address |
+
+#### Example B: corrected source
+
+Paste this **request body** into Postman:
+
+```json
+{
+  "audit_id": "example-corrected-001",
+  "source_code": "// SPDX-License-Identifier: MIT\npragma solidity 0.8.24;\ncontract Example {\n    address public owner = msg.sender;\n    function changeOwner(address newOwner) external {\n        require(msg.sender == owner, \"Unauthorized\");\n        require(newOwner != address(0), \"Zero address\");\n        owner = newOwner;\n    }\n}"
+}
+```
+
+With the current tool version, expected behavior is HTTP **200**, `status: completed`, `finding_count: 0`, and `findings: []`. Metadata is still included.
+
+The `\n` escapes preserve line breaks in the Solidity source. One-line source naturally produces findings on line 1.
+
+#### Example C: invalid Solidity
+
+Paste this **request body** into Postman:
+
+```json
+{
+  "audit_id": "example-invalid-001",
+  "source_code": "pragma solidity 0.8.24; contract Broken { uint256 public amount }"
+}
+```
+
+Expected behavior is HTTP **422** with a `detail` message containing:
+
+```text
+Solidity compilation failed:
+ParserError: Expected ';' but got '}'
+```
+
+The missing semicolon is intentional. Compilation failure is an unsuccessful analysis, not a security finding.
+
+### Response fields
+
+The service generates the following fields. Do not copy them into the request body in place of `source_code`.
+
+| Response field               | Meaning                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| `audit_id`                   | The caller's audit identifier                                                  |
+| `status`                     | `completed` when analysis finishes successfully, including scans with findings |
+| `finding_count`              | Number of findings in the response                                             |
+| `metadata.source_sha256`     | SHA-256 of the exact submitted UTF-8 source bytes                              |
+| `metadata.slither_version`   | Installed Slither package version                                              |
+| `metadata.compiler_version`  | Compiler version including commit/platform suffix                              |
+| `findings[].finding_id`      | Deterministic application-generated finding identifier                         |
+| `findings[].tool_finding_id` | Original Slither identifier; may vary with temporary paths                     |
+| `findings[].tool`            | `slither`                                                                      |
+| `findings[].rule_id`         | Slither detector identifier                                                    |
+| `findings[].description`     | Detector explanation with normalized source paths                              |
+| `findings[].severity`        | Slither's impact value                                                         |
+| `findings[].confidence`      | Slither's confidence value                                                     |
+| `findings[].reference`       | Detector documentation URL, when present                                       |
+| `findings[].locations`       | Source files and line ranges involved in the finding                           |
+
+Source locations in the single-file API use `Contract.sol`. A finding can have multiple locations, such as both a function range and a specific statement. The line numbers are one-based; locations without available line information can contain null line values.
+
+The API does not label detected findings as confirmed exploits.
+
+### Verify finding reproducibility
+
+1. Send Example A.
+2. Send it again with a different `audit_id`, keeping `source_code` exactly identical.
+3. Compare findings by `rule_id` and location, rather than relying on list order.
+4. Confirm that `source_sha256` and the corresponding `finding_id` values match.
+
+The ID includes the source hash, detector, normalized description, and normalized locations. It does not include the audit ID or the random workspace path. Original `tool_finding_id` values can differ between scans.
+
+Whitespace and line-ending changes affect the source hash. Tool updates can change detector descriptions or findings and therefore can change application finding IDs. The IDs are not a guarantee of equivalence across modified source or different analysis behavior.
+
+### HTTP status codes
+
+| Status | Meaning                                                                             |
+| ------ | ----------------------------------------------------------------------------------- |
+| `200`  | Scan completed; inspect `finding_count` and `findings`                              |
+| `405`  | Wrong HTTP method, such as GET on the analysis endpoint                             |
+| `422`  | Invalid request fields, blank/oversized source, or a compiler-reported source error |
+| `500`  | Internal analysis/tool failure; inspect server logs                                 |
+| `504`  | Compilation, version-check, or Slither subprocess timeout                           |
+
+Request-schema errors return a `detail` list. Compilation errors return a `detail` string. The generic internal-failure response also uses a `detail` string.
+
+### PowerShell alternative to Postman
+
+Use the existing vulnerable fixture as source:
+
+```powershell
+$scanRequest = @{
+    audit_id = 'powershell-example-001'
+    source_code = Get-Content -LiteralPath '.\tests\fixtures\contracts\TxOriginExample.sol' -Raw
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8001/api/v1/analysis' -ContentType 'application/json' -Body ([System.Text.Encoding]::UTF8.GetBytes($scanRequest)) | ConvertTo-Json -Depth 12
+```
+
+## Automated tests
+
+Install local development dependencies and compiler as described above, then run:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests -v
+```
+
+The current suite contains **14 tests**:
+
+| Test file                       | Coverage                                                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `tests/test_analysis_api.py`    | Vulnerable authorization detection, correction of that authorization issue, and compilation-error HTTP handling          |
+| `tests/test_reproducibility.py` | Repeated API scans, stable IDs, normalized paths, and source/version metadata                                            |
+| `tests/test_config.py`          | Defaults, environment overrides, invalid settings, UTF-8 byte limits, blank source, and compiler environment propagation |
+
+The API tests execute the actual compiler and Slither through FastAPI's in-process test client. Uvicorn and Docker do not need to be running for these host-side tests. The local Python environment and compiler must still be installed.
+
+The settings-only tests can run independently:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/test_config.py -v
+```
+
+They do not run Solidity analysis.
+
+Pytest does not automatically load `.env` through the application's configuration code. The service uses defaults unless variables are already in the process environment; configuration tests isolate their own variables.
+
+The runtime Docker image copies `app/` and installs runtime dependencies. It does not include the test suite or development requirements, so run the commands above on the host development environment.
+
+## Manual Slither checks
+
+These commands are useful when diagnosing the tool independently of the API. Run them from the service root after local installation.
+
+Check the vulnerable fixture with the focused detector:
+
+```powershell
+.\.venv\Scripts\slither.exe .\tests\fixtures\contracts\TxOriginExample.sol --solc .\.venv\Scripts\solc.exe --detect tx-origin --json .\slither-manual-vulnerable.json
+```
+
+Expected: one `tx-origin` finding.
+
+Check the corrected authorization fixture:
+
+```powershell
+.\.venv\Scripts\slither.exe .\tests\fixtures\contracts\TxOriginFixed.sol --solc .\.venv\Scripts\solc.exe --detect tx-origin --json .\slither-manual-fixed.json
+```
+
+Expected: zero `tx-origin` findings. This focused check does not assert that every other detector reports zero findings.
+
+Use a fresh JSON output filename when repeating a manual command; Slither may refuse to overwrite an existing output file. The API runner creates a fresh output path automatically.
+
+Slither can exit with a nonzero status when findings exist. The service checks Slither's JSON `success` and error information rather than treating all nonzero exits as scan failures. Successful empty scans can contain `"results": {}`.
+
+## Project structure
+
+```text
+static-analysis-service/
+|-- app/
+|   |-- main.py                         # FastAPI startup and health endpoint
+|   |-- api/routers/analysis.py         # Analysis route and error responses
+|   |-- core/config.py                  # Validated environment settings
+|   |-- schemas/
+|   |   |-- analysis.py                 # Request, metadata and response models
+|   |   `-- finding.py                  # Findings and source locations
+|   |-- services/
+|   |   |-- analysis_service.py         # Coordinates each analysis request
+|   |   |-- compiler_service.py         # Solidity compilation validation
+|   |   `-- metadata_service.py         # Source hash and installed tool versions
+|   |-- tools/slither_runner.py         # Slither subprocess and timeout handling
+|   `-- parsers/slither_parser.py       # Output normalization and stable IDs
+|-- tests/
+|   |-- fixtures/contracts/
+|   |   |-- TxOriginExample.sol
+|   |   `-- TxOriginFixed.sol
+|   |-- test_analysis_api.py
+|   |-- test_reproducibility.py
+|   `-- test_config.py
+|-- workspaces/                         # Created at runtime; temporary source data
+|-- Dockerfile
+|-- .dockerignore
+|-- .env.example
+|-- requirements.txt                    # Runtime dependencies
+|-- requirements-dev.txt                # Runtime plus testing dependencies
+`-- README.md
+```
+
+The configured workspace is created when needed. `.env`, `.venv/`, Python caches, and audit workspace contents are local/runtime files rather than application source. The checked-in `.dockerignore` excludes `.env`, `.venv/`, and the default `workspaces/` directory from the Docker build context.
+
+## Processing flow
+
+```text
+POST /api/v1/analysis
+        |
+        v
+Validate request fields and UTF-8 source size
+        |
+        v
+Compile source using solc standard JSON
+        |
+        v
+Calculate source hash and obtain version metadata
+        |
+        v
+Create a unique workspace and write Contract.sol
+        |
+        v
+Run Slither's default detector suite
+        |
+        v
+Normalize descriptions/locations and calculate finding IDs
+        |
+        v
+Return structured response and clean temporary files
+```
+
+Compilation validation and Slither are separate stages; Slither also performs the compilation needed by its own analysis. The service currently handles the request synchronously.
+
+## Troubleshooting
+
+### `Method Not Allowed`
+
+Use **POST**, not GET, for `/api/v1/analysis`. Opening that URL directly in a browser sends GET. Open `/docs` to use Swagger's configured POST operation.
+
+### `source_code` is required
+
+The request must contain `audit_id` and `source_code`. Fields such as `status`, `finding_count`, `metadata`, and `findings` belong to the response and do not replace the source input.
+
+### `Import "pydantic" could not be resolved`
+
+Select `.venv\Scripts\python.exe` as the VS Code interpreter. Verify installation using:
+
+```powershell
+.\.venv\Scripts\python.exe -c "import pydantic; print(pydantic.__version__)"
+```
+
+If the import fails, reinstall from `requirements-dev.txt` in that environment.
+
+### `No module named 'app.api.routes'`
+
+The implemented directory is named **`routers`**. The main application imports:
+
+```python
+from app.api.routers.analysis import router as analysis_router
+```
+
+Run Uvicorn from the service root so the `app` package is discoverable. Python package marker files, where used, are named `__init__.py` with two underscores on each side.
+
+### Windows tries to install `uvloop`
+
+Keep the platform marker in `requirements.txt`:
+
+```text
+uvloop==0.23.0; sys_platform != "win32"
+```
+
+This is a requirements-file entry, not a PowerShell command. Windows skips the package; Linux Docker installs it.
+
+### Slither/Web3 dependency conflict with `websockets`
+
+The current requirements use:
+
+```text
+websockets>=10.0.0,<16.0.0
+```
+
+Do not restore the incompatible `websockets==17.2` pin alongside the current Slither/Web3 dependency set. Reinstall the requirements and run `pip check` after dependency changes. Do not use `--no-deps` to bypass dependency resolution.
+
+### Test-client deprecation warning about `httpx`
+
+Install `requirements-dev.txt`, which includes `httpx2`. Keep the test import as:
+
+```python
+from fastapi.testclient import TestClient
+```
+
+Starlette selects the installed `httpx2` client automatically.
+
+### Compilation error or unsupported compiler setting
+
+Submitted source must compile with Solidity 0.8.24. The compiler reports syntax/type errors or incompatible pragmas as HTTP 422 responses. The service rejects a configured `SOLC_VERSION` other than `0.8.24` at startup.
+
+Changing `.env` is not an implementation of multi-version compiler support.
+
+### `Analysis failed. Check the service logs for details.`
+
+Inspect the Uvicorn terminal or `docker logs static-analysis-service`. Check that the compiler and Slither are installed beside the Python interpreter running the application and that the source workspace is writable. Compiler-reported source errors should produce 422; other tool failures produce 500.
+
+### Docker engine unavailable, port occupied, or container name in use
+
+- Start Docker Desktop and wait for its Linux engine to become ready.
+- Check running containers with `docker ps`.
+- Check both running and stopped named containers with `docker ps -a --filter name=static-analysis-service`.
+- Stop the existing service container before starting another with the same name or host port.
+- Use port 8001 for Docker and port 8000 for the documented local Uvicorn command.
+
+### Changed configuration is not taking effect
+
+For local execution, restart Uvicorn with `--env-file .env`. For Docker, stop and recreate the container with `--env-file .env`. The environment file is not copied into the image. Application code/dependency changes also require rebuilding the image.
+
+### Multiple frameworks detected
+
+A Slither message such as `Multiple frameworks detected: solc, Solc-json. Using solc` can be informational. Check whether analysis completed and valid JSON was produced before treating it as a failure.
+
+## Current limitations
+
+- One source file supplied as JSON; repository URLs, uploaded archives, and multi-file projects are not implemented.
+- External source imports are not supported by the current compilation validator.
+- Only compiler 0.8.24 is supported by the current configuration.
+- Jobs are synchronous; no background queue, persisted job status, or audit-history storage is implemented.
+- Temporary workspaces are cleaned; submitted source and results are not retained as a permanent audit record.
+- Authentication and concurrency/rate controls are outside the implemented standalone prototype.
+- Findings are detector results, not sandbox-confirmed exploitability evidence.
+
+## References
+
+- [Slither project and usage](https://github.com/crytic/slither)
+- [Slither JSON output](https://github.com/crytic/slither/wiki/JSON-output)
+- [solc-select](https://github.com/crytic/solc-select)
+- [Solidity 0.8.24 compiler interface](https://docs.soliditylang.org/en/v0.8.24/using-the-compiler.html)
+- [FastAPI first steps](https://fastapi.tiangolo.com/tutorial/first-steps/)
+- [Docker build practices](https://docs.docker.com/build/building/best-practices/)
