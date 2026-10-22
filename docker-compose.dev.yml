@@ -30,6 +30,7 @@ services:
       - RAG_LLM_SERVICE_URL=${RAG_LLM_SERVICE_URL:-http://rag-llm-service:8002}
       - EXPLOIT_AGENT_SERVICE_URL=${EXPLOIT_AGENT_SERVICE_URL:-http://exploit-agent-service:8003}
       - SANDBOXED_EXECUTION_SERVICE_URL=${SANDBOXED_EXECUTION_SERVICE_URL:-http://sandboxed-execution-service:8004}
+      - SUPPORT_SERVICE_URL=${SUPPORT_SERVICE_URL:-http://support-service:3004}
       - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-key-change-in-production}
     depends_on:
       - user-service
@@ -71,6 +72,21 @@ services:
       - "3003:3003"
     environment:
       - PORT=3003
+
+  support-service:
+    build:
+      context: ./services/support-service
+      dockerfile: Dockerfile
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-audit}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-audit_db}?schema=public
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-auditor@alpa.com}
+      - SUBSCRIPTION_SERVICE_URL=http://subscription-service:3002
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   static-analysis-service:
     build:

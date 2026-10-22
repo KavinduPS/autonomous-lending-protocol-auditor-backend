@@ -23,6 +23,8 @@ export const config = {
       process.env.EXPLOIT_AGENT_SERVICE_URL || "http://localhost:8003",
     sandboxedExecutionServiceUrl:
       process.env.SANDBOXED_EXECUTION_SERVICE_URL || "http://localhost:8004",
+    supportServiceUrl:
+      process.env.SUPPORT_SERVICE_URL || "http://localhost:3004",
   },
 
   rateLimit: {

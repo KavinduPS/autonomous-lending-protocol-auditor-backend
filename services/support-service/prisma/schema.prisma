@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TicketCategory {
+  AUDIT_DISPUTE
+  EXECUTION_BUG
+  GENERAL
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum MessageSender {
+  USER
+  AUDITOR
+  SYSTEM
+}
+
+model SupportTicket {
+  id           String         @id @default(uuid()) @db.Uuid
+  ticketNumber String         @unique @map("ticket_number")
+  userId       String         @map("user_id") @db.Uuid
+  userEmail    String?        @map("user_email")
+  auditId      String?        @map("audit_id")
+  subject      String
+  description  String
+  category     TicketCategory @default(GENERAL)
+  priority     TicketPriority @default(MEDIUM)
+  status       TicketStatus   @default(OPEN)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  messages TicketMessage[]
+
+  @@index([userId])
+  @@index([auditId])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id          String        @id @default(uuid()) @db.Uuid
+  ticketId    String        @map("ticket_id") @db.Uuid
+  senderRole  MessageSender @default(USER) @map("sender_role")
+  senderEmail String?       @map("sender_email")
+  message     String
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}

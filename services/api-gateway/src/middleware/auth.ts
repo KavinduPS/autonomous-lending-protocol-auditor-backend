@@ -28,6 +28,7 @@ const PUBLIC_PATHS: Array<{ path: string | RegExp; method?: string }> = [
   { path: "/api/auth/refresh", method: "POST" },
   { path: "/api/plans", method: "GET" },
   { path: "/api/webhooks/stripe", method: "POST" },
+  { path: "/api/support/inbound-email", method: "POST" },
 ];
 
 function isPublicRoute(req: Request): boolean {
