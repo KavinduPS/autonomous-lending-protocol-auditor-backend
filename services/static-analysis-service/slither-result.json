@@ -1,0 +1,135 @@
+{
+  "success": true,
+  "error": null,
+  "results": {
+    "detectors": [
+      {
+        "elements": [
+          {
+            "type": "function",
+            "name": "changeOwner",
+            "source_mapping": {
+              "start": 134,
+              "length": 137,
+              "filename_relative": "tests/fixtures/contracts/TxOriginExample.sol",
+              "filename_absolute": "D:/My work/Reseach Project/autonomous-lending-protocol-auditor-backend/services/static-analysis-service/tests/fixtures/contracts/TxOriginExample.sol",
+              "filename_short": "tests/fixtures/contracts/TxOriginExample.sol",
+              "is_dependency": false,
+              "lines": [
+                7,
+                8,
+                9,
+                10
+              ],
+              "starting_column": 5,
+              "ending_column": 6
+            },
+            "type_specific_fields": {
+              "parent": {
+                "type": "contract",
+                "name": "TxOriginExample",
+                "source_mapping": {
+                  "start": 60,
+                  "length": 214,
+                  "filename_relative": "tests/fixtures/contracts/TxOriginExample.sol",
+                  "filename_absolute": "D:/My work/Reseach Project/autonomous-lending-protocol-auditor-backend/services/static-analysis-service/tests/fixtures/contracts/TxOriginExample.sol",
+                  "filename_short": "tests/fixtures/contracts/TxOriginExample.sol",
+                  "is_dependency": false,
+                  "lines": [
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12
+                  ],
+                  "starting_column": 1,
+                  "ending_column": 0
+                }
+              },
+              "signature": "changeOwner(address)"
+            }
+          },
+          {
+            "type": "node",
+            "name": "require(bool,string)(tx.origin == owner,Unauthorized)",
+            "source_mapping": {
+              "start": 193,
+              "length": 43,
+              "filename_relative": "tests/fixtures/contracts/TxOriginExample.sol",
+              "filename_absolute": "D:/My work/Reseach Project/autonomous-lending-protocol-auditor-backend/services/static-analysis-service/tests/fixtures/contracts/TxOriginExample.sol",
+              "filename_short": "tests/fixtures/contracts/TxOriginExample.sol",
+              "is_dependency": false,
+              "lines": [
+                8
+              ],
+              "starting_column": 9,
+              "ending_column": 52
+            },
+            "type_specific_fields": {
+              "parent": {
+                "type": "function",
+                "name": "changeOwner",
+                "source_mapping": {
+                  "start": 134,
+                  "length": 137,
+                  "filename_relative": "tests/fixtures/contracts/TxOriginExample.sol",
+                  "filename_absolute": "D:/My work/Reseach Project/autonomous-lending-protocol-auditor-backend/services/static-analysis-service/tests/fixtures/contracts/TxOriginExample.sol",
+                  "filename_short": "tests/fixtures/contracts/TxOriginExample.sol",
+                  "is_dependency": false,
+                  "lines": [
+                    7,
+                    8,
+                    9,
+                    10
+                  ],
+                  "starting_column": 5,
+                  "ending_column": 6
+                },
+                "type_specific_fields": {
+                  "parent": {
+                    "type": "contract",
+                    "name": "TxOriginExample",
+                    "source_mapping": {
+                      "start": 60,
+                      "length": 214,
+                      "filename_relative": "tests/fixtures/contracts/TxOriginExample.sol",
+                      "filename_absolute": "D:/My work/Reseach Project/autonomous-lending-protocol-auditor-backend/services/static-analysis-service/tests/fixtures/contracts/TxOriginExample.sol",
+                      "filename_short": "tests/fixtures/contracts/TxOriginExample.sol",
+                      "is_dependency": false,
+                      "lines": [
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12
+                      ],
+                      "starting_column": 1,
+                      "ending_column": 0
+                    }
+                  },
+                  "signature": "changeOwner(address)"
+                }
+              }
+            }
+          }
+        ],
+        "description": "TxOriginExample.changeOwner(address) (tests/fixtures/contracts/TxOriginExample.sol#7-10) uses tx.origin for authorization: require(bool,string)(tx.origin == owner,Unauthorized) (tests/fixtures/contracts/TxOriginExample.sol#8)\n",
+        "markdown": "[TxOriginExample.changeOwner(address)](tests/fixtures/contracts/TxOriginExample.sol#L7-L10) uses tx.origin for authorization: [require(bool,string)(tx.origin == owner,Unauthorized)](tests/fixtures/contracts/TxOriginExample.sol#L8)\n",
+        "first_markdown_element": "tests/fixtures/contracts/TxOriginExample.sol#L7-L10",
+        "id": "388a37e5d355d4166df919ce56ce1f467bb7bcd24d9e037f020b842c51e5e3e7",
+        "check": "tx-origin",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "reference": "https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-usage-of-txorigin"
+      }
+    ]
+  }
+}
