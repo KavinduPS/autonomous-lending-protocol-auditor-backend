@@ -1,3 +1,9 @@
-.venv
-__pycache__
+.venv/
+.git/
+__pycache__/
 *.pyc
+.pytest_cache/
+.env
+workspaces/
+slither-result.json
+slither-fixed-result.json
