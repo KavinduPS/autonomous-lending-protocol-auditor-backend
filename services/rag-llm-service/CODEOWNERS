@@ -1,0 +1,34 @@
+# CODEOWNERS for rag-llm-service
+
+# Person A (Knowledge Base & Retrieval)
+app/knowledge/                @person-a
+scripts/ingest.py             @person-a
+eval/                         @person-a
+tests/knowledge/              @person-a
+requirements/knowledge.txt    @person-a
+env/knowledge.env.example     @person-a
+
+# Person B (API, Database, Code Prep, Reasoning)
+app/main.py                   @person-b
+app/api/                      @person-b
+app/db/                       @person-b
+app/code_prep/                @person-b
+app/reasoning/                @person-b
+app/schemas.py                @person-b
+app/deps.py                   @person-b
+app/config.py                 @person-b
+tests/api/                    @person-b
+tests/reasoning/              @person-b
+requirements/base.txt         @person-b
+requirements.txt              @person-b
+docker-compose.yml            @person-b
+pyproject.toml                @person-b
+.gitignore                    @person-b
+Dockerfile                    @person-b
+alembic/                      @person-b
+README.md                     @person-b
+CODEOWNERS                    @person-b
+
+# Shared & Frozen (Requires mutual approval)
+app/contracts.py              @person-a @person-b
+docs/sample_output.json       @person-a @person-b
