@@ -71,6 +71,7 @@ services:
       - "3003:3003"
     environment:
       - PORT=3003
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/audit_db?schema=public
 
   static-analysis-service:
     build:

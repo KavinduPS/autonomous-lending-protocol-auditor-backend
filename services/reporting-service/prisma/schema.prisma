@@ -1,0 +1,163 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AuditStatus {
+  PENDING
+  ANALYZING
+  COMPLETE
+  FAILED
+}
+
+enum StageName {
+  STATIC
+  RAG
+  EPA
+}
+
+enum StageStatus {
+  PENDING
+  RUNNING
+  COMPLETE
+  FAILED
+  SKIPPED
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum Confidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum DetectionSource {
+  SLITHER
+  RAG
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  CONFIRMED
+  NOT_CONFIRMED
+}
+
+enum ExploitOutcome {
+  CONFIRMED
+  NOT_CONFIRMED
+  ERROR
+}
+
+model Audit {
+  id           String      @id @default(uuid())
+  userId       String      @map("user_id")
+  contractName String      @map("contract_name")
+  sourceUri    String      @map("source_uri")
+  status       AuditStatus @default(PENDING)
+  errorMessage String?     @map("error_message")
+  baseline     Json?       // normal execution snapshot captured before EPA runs
+  createdAt    DateTime    @default(now()) @map("created_at")
+  completedAt  DateTime?   @map("completed_at")
+  deletedAt    DateTime?   @map("deleted_at")
+
+  stages   AuditStage[]
+  findings Finding[]
+
+  @@index([userId, createdAt])
+  @@map("audits")
+}
+
+model AuditStage {
+  id      String      @id @default(uuid())
+  auditId String      @map("audit_id")
+  stage   StageName
+  status  StageStatus @default(PENDING)
+  metrics Json?
+
+  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@unique([auditId, stage])
+  @@map("audit_stages")
+}
+
+model VulnerabilityCategory {
+  code              String  @id
+  name              String
+  owaspScRef        String? @map("owasp_sc_ref")
+  defaultMitigation String? @map("default_mitigation")
+
+  findings Finding[]
+
+  @@map("vulnerability_categories")
+}
+
+model Finding {
+  id                 String             @id @default(uuid())
+  auditId            String             @map("audit_id")
+  categoryCode       String             @map("category")
+  title              String
+  severity           Severity
+  detectedBy         String[]           @map("detected_by")
+  triageScore        Decimal?           @map("triage_score")
+  triageDecision     String?            @map("triage_decision")
+  verificationStatus VerificationStatus @default(UNVERIFIED) @map("verification_status")
+
+  audit           Audit                 @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  category        VulnerabilityCategory @relation(fields: [categoryCode], references: [code])
+  detections      Detection[]
+  exploitAttempts ExploitAttempt[]
+
+  @@index([auditId, severity])
+  @@map("findings")
+}
+
+model Detection {
+  id          String          @id @default(uuid())
+  findingId   String          @map("finding_id")
+  source      DetectionSource
+  ruleId      String?         @map("rule_id")
+  severity    Severity
+  confidence  Confidence
+  description String          @db.Text
+  file        String?
+  lineStart   Int?            @map("line_start")
+  lineEnd     Int?            @map("line_end")
+  raw         Json
+
+  finding Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@unique([findingId, source])
+  @@map("detections")
+}
+
+model ExploitAttempt {
+  id          String         @id @default(uuid())
+  findingId   String         @map("finding_id")
+  attemptNo   Int            @map("attempt_no")
+  pocCode     String?        @map("poc_code") @db.Text
+  reactLog    Json?          @map("react_log")
+  environment Json?
+  evidence    Json?
+  outcome     ExploitOutcome
+
+  finding Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@unique([findingId, attemptNo])
+  @@map("exploit_attempts")
+}
