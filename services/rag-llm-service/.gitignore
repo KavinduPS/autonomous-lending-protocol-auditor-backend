@@ -23,3 +23,5 @@ qdrant_storage/
 .DS_Store
 .vscode/
 .idea/
+
+scratch.py
