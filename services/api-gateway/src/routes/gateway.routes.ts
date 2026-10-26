@@ -114,4 +114,12 @@ router.use(
   }),
 );
 
+// 8. Support Service (Port 3004)
+router.use(
+  "/api/support",
+  createServiceProxy({
+    target: config.services.supportServiceUrl,
+  }),
+);
+
 export default router;
