@@ -25,3 +25,5 @@ qdrant_storage/
 .idea/
 
 scratch.py
+peek.py 
+peek_file.py

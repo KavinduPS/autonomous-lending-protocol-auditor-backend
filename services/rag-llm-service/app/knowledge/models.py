@@ -13,6 +13,7 @@ class KnowledgeChunk(BaseModel):
     vuln_class: str = "other"
     severity: str | None = None
     incident_name: str | None = None
+    chunk_index: int = Field(default=0, ge=0)
 
     @field_validator("vuln_class")
     @classmethod

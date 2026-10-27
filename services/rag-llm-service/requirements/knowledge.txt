@@ -13,3 +13,4 @@ sentence-transformers==6.2.0
 SQLAlchemy==2.1.6
 torch==2.14.1
 transformers==5.20.2
+huggingface_hub
