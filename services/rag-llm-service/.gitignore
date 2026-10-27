@@ -25,5 +25,8 @@ qdrant_storage/
 .idea/
 
 scratch.py
+scratch_dupes.py
 peek.py 
 peek_file.py
+
+knowledge.dump

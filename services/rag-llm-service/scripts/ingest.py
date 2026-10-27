@@ -55,9 +55,19 @@ def batches(items: Iterable[KnowledgeChunk], size: int) -> Iterator[list[Knowled
         yield batch
 
 
+def unique_by_text(chunks: Iterable[KnowledgeChunk]) -> Iterator[KnowledgeChunk]:
+    seen: set[str] = set()
+    for chunk in chunks:
+        key = " ".join(chunk.text.lower().split())
+        if key in seen:
+            continue
+        seen.add(key)
+        yield chunk
+
+
 def ingest_source(name: str, chunks: Iterable[KnowledgeChunk], store) -> int:
     saved = 0
-    for batch in batches(pieces(chunks), BATCH_SIZE):
+    for batch in batches(pieces(unique_by_text(chunks)), BATCH_SIZE):
         documents = [to_document(chunk) for chunk in batch]
         ids = [document.id for document in documents]
         store.delete(ids)
