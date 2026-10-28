@@ -95,9 +95,6 @@ services:
     ports:
       - "8001:8001"
 
-  # Dedicated pgvector database for RAG LLM service
-  # public schema  → Person B's analyses & hypotheses tables (Alembic)
-  # knowledge schema → Person A's vector embeddings (pgvector)
   rag_db:
     image: pgvector/pgvector:pg16
     container_name: alpa_rag_db
