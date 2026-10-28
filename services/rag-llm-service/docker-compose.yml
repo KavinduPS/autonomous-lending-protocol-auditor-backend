@@ -1,0 +1,51 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: alpa_qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  rag_postgres:
+    image: postgres:16
+    container_name: alpa_rag_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rag_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - rag_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rag_db"]
+      interval: 5s
+      retries: 5
+
+  rag-llm-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: alpa_rag_llm_service
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      - PORT=8002
+      - HOST=0.0.0.0
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@rag_postgres:5432/rag_db
+      - KNOWLEDGE_QDRANT_URL=http://qdrant:6333
+      - RETRIEVER=fake
+    depends_on:
+      rag_postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+volumes:
+  qdrant_storage:
+  rag_pgdata:

@@ -1,0 +1,42 @@
+{
+  "audit_id": "uuid",
+  "status": "completed",
+  "context": {
+    "contracts": [
+      {
+        "name": "LendingPool",
+        "file": "src/LendingPool.sol",
+        "is_proxy": false,
+        "implementation": null
+      }
+    ],
+    "constructor_params": {}
+  },
+  "hypotheses": [
+    {
+      "id": "h1",
+      "title": "Spot price oracle can be manipulated",
+      "location": {
+        "file": "src/LendingPool.sol",
+        "contract": "LendingPool",
+        "function": "borrow",
+        "lines": [112, 140]
+      },
+      "vuln_class": "price_manipulation",
+      "reason": "Collateral value is read from one DEX pool in the same transaction.",
+      "preconditions": [
+        "needs flash loan",
+        "pool has low liquidity"
+      ],
+      "attack_idea": "Skew the pool price, borrow against inflated collateral, leave bad debt.",
+      "similar_incidents": [
+        {
+          "source": "defihacklabs",
+          "name": "Cream Finance 2021"
+        }
+      ],
+      "confidence": 0.78,
+      "severity": "high"
+    }
+  ]
+}
