@@ -2,10 +2,6 @@
 from app.code_prep.parser import ContractInfo, FunctionInfo
 from app.reasoning.validator import validate_hypotheses
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _make_contracts():
     return [
         ContractInfo(
@@ -41,11 +37,6 @@ def _hyp(**kwargs):
     }
     base.update(kwargs)
     return base
-
-
-# ---------------------------------------------------------------------------
-# File / function validation
-# ---------------------------------------------------------------------------
 
 class TestLocationValidation:
     def test_valid_hypothesis_passes(self):
@@ -85,10 +76,6 @@ class TestLocationValidation:
         assert len(result) == 1
 
 
-# ---------------------------------------------------------------------------
-# vuln_class normalisation
-# ---------------------------------------------------------------------------
-
 class TestVulnClass:
     def test_valid_vuln_class_kept(self):
         hyp = _hyp(vuln_class="reentrancy")
@@ -100,10 +87,6 @@ class TestVulnClass:
         result = validate_hypotheses([hyp], _make_contracts())
         assert result[0]["vuln_class"] == "other"
 
-
-# ---------------------------------------------------------------------------
-# Confidence clamping
-# ---------------------------------------------------------------------------
 
 class TestConfidence:
     def test_confidence_above_1_clamped(self):
