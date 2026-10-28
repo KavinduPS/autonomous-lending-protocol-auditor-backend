@@ -1,5 +1,4 @@
 services:
-  # One database for everything: B's tables (public schema) + A's vectors (knowledge schema)
   rag_postgres:
     image: pgvector/pgvector:pg16
     container_name: alpa_rag_postgres
