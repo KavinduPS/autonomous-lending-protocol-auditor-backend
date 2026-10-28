@@ -1,7 +1,3 @@
-"""Step 8 failure-path tests for the reasoning pipeline.
-
-All Claude calls are mocked — no API key or network needed.
-"""
 import pytest
 from unittest.mock import patch
 
@@ -10,10 +6,6 @@ from app.reasoning.fake_retriever import FakeRetriever
 from app.reasoning.analyzer import analyze_project
 from app.reasoning.validator import validate_hypotheses
 
-
-# ---------------------------------------------------------------------------
-# Shared fixtures
-# ---------------------------------------------------------------------------
 
 FAKE_SOL = [{"path": "src/Vault.sol", "content": """
 pragma solidity ^0.8.0;
@@ -37,10 +29,6 @@ FAKE_CONTRACTS = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Analyzer — failure paths
-# ---------------------------------------------------------------------------
-
 class TestAnalyzerFailurePaths:
     def test_claude_timeout_returns_empty_not_crash(self):
         """If Claude raises a timeout exception, analyzer returns [] instead of crashing."""
@@ -63,7 +51,6 @@ class TestAnalyzerFailurePaths:
     def test_claude_returns_non_list_garbage(self):
         """If Claude returns garbage (not a list), analyzer returns empty without crashing."""
         with patch("app.reasoning.analyzer._call_claude", return_value=None):
-            # None is not iterable — analyzer should catch and return []
             result = analyze_project("fail-004", FAKE_SOL, FAKE_CONTRACTS, FakeRetriever())
         assert result == []
 
@@ -88,13 +75,7 @@ class TestAnalyzerFailurePaths:
 
         with patch("app.reasoning.analyzer._call_claude", return_value=good_response):
             result = analyze_project("fail-005", FAKE_SOL, FAKE_CONTRACTS, BrokenRetriever())
-        # Should still return hypotheses even without retrieved chunks
         assert len(result) >= 1
-
-
-# ---------------------------------------------------------------------------
-# Validator — invalid Claude output
-# ---------------------------------------------------------------------------
 
 class TestValidatorInvalidOutput:
     def test_hypothesis_missing_location_key_is_dropped(self):
@@ -183,7 +164,7 @@ class TestValidatorInvalidOutput:
             "reason": "r",
             "attack_idea": "a",
             "severity": "high",
-            "confidence": "very_confident",  # garbage
+            "confidence": "very_confident", 
             "location": {"file": "src/Vault.sol", "contract": "Vault", "function": "withdraw", "lines": [5]},
             "preconditions": [],
             "similar_incidents": [],
