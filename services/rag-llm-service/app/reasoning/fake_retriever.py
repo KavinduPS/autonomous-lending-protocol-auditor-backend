@@ -2,7 +2,7 @@ from app.contracts import RetrievedChunk, Retriever
 
 
 class FakeRetriever:
-    """Stand-in retriever for development and testing until Person A finishes real Qdrant retriever."""
+    """Stand-in retriever for development and testing until Person A finishes the real pgvector retriever."""
 
     def retrieve(
         self,
