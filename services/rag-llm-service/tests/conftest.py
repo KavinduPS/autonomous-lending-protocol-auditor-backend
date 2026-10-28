@@ -8,7 +8,6 @@ from app.db.models import Base
 from app.db.session import get_db
 from app.main import app
 
-# Use an in-memory SQLite database for tests (no Postgres needed)
 SQLITE_URL = "sqlite:///./test.db"
 
 engine = create_engine(SQLITE_URL, connect_args={"check_same_thread": False})
