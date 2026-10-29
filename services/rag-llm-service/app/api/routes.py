@@ -128,28 +128,24 @@ def _analysis_to_response(analysis) -> AnalysisResponse:
 @router.get("/health", status_code=status.HTTP_200_OK)
 def health(db: Session = Depends(get_db)):
     """Health check — verifies database connectivity and retriever availability."""
-    import os
     from sqlalchemy import text
 
-    # 1. Database check
+
     try:
         db.execute(text("SELECT 1"))
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Database unavailable: {exc}")
 
-    # 2. Retriever check
-    retriever_mode = os.getenv("RETRIEVER", "fake")
-    if retriever_mode == "real":
-        try:
-            from app.deps import get_retriever
-            get_retriever()
-        except Exception as exc:
-            raise HTTPException(status_code=503, detail=f"Retriever unavailable: {exc}")
+    try:
+        from app.deps import get_retriever
+        get_retriever()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Retriever unavailable: {exc}")
 
     return {
         "status": "ok",
         "service": "rag-llm-service",
-        "retriever": retriever_mode,
+        "retriever": "real",
     }
 
 

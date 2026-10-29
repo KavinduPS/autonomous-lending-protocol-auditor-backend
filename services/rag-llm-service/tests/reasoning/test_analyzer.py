@@ -1,9 +1,9 @@
-﻿"""Tests for the analyzer. Claude call is always mocked — no API key needed."""
+"""Tests for the analyzer. Claude call is always mocked — no API key needed."""
 import pytest
 from unittest.mock import patch
 
 from app.code_prep.parser import ContractInfo, FunctionInfo
-from app.reasoning.fake_retriever import FakeRetriever
+from tests.conftest import FakeRetriever
 from app.reasoning.analyzer import analyze_project
 
 

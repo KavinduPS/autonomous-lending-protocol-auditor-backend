@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch
 
 from app.code_prep.parser import ContractInfo, FunctionInfo
-from app.reasoning.fake_retriever import FakeRetriever
+from tests.conftest import FakeRetriever
 from app.reasoning.analyzer import analyze_project
 from app.reasoning.validator import validate_hypotheses
 
@@ -88,7 +88,7 @@ class TestValidatorInvalidOutput:
             "attack_idea": "test",
             "severity": "high",
             "confidence": 0.8,
-            # location missing entirely
+            
             "preconditions": [],
             "similar_incidents": [],
         }
