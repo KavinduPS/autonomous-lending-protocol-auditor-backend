@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "postinstall": "prisma generate"
@@ -15,6 +15,11 @@
   "devDependencies": {
     "@types/node": "^26.6.5",
     "ts-node": "^10.9.2",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "ethers": "^6.17.0"
   }
 }
