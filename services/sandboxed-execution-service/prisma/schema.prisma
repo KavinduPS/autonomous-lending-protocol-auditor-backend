@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ExecutionRun {
+  id             String   @id @default(uuid())
+  auditId        String   @map("audit_id")
+  mode           String   // "baseline" | "exploit_attempt"
+  chain          String
+  blockNumber    Int      @map("block_number")
+  status         String   // "success" | "failed" | "revert"
+  revertReason   String?  @map("revert_reason")
+  profitNative   Float    @map("profit_native")
+  gasUsed        Int      @map("gas_used")
+  executionTrace String   @map("execution_trace") @db.Text
+  durationMs     Int      @map("duration_ms")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("execution_runs")
+}
