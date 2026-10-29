@@ -72,6 +72,8 @@ services:
       - "3003:3003"
     environment:
       - PORT=3003
+      - DATABASE_URL=${REPORTING_DATABASE_URL}
+      - INTERNAL_API_KEY=internal-api-key
 
   support-service:
     build:
