@@ -1,0 +1,78 @@
+@base = http://localhost:3003
+@user = sample-user-id
+@key = internal-api-key
+
+@auditA = demo-a-vulnerable-bank
+@auditB = demo-b-lending-pool
+@auditC = demo-c-simple-wallet
+@auditD = demo-d-pending-vault
+
+### 1. Service is up
+GET {{base}}/health
+
+### 2. The four audits and their states
+GET {{base}}/api/reports
+x-user-id: {{user}}
+
+### 3. Audit A: the full report
+# @name reportA
+GET {{base}}/api/reports/{{auditA}}
+x-user-id: {{user}}
+
+### 4. Audit A: the three-way comparison (normal execution, static vs RAG, exploit simulation)
+GET {{base}}/api/reports/{{auditA}}/comparison
+x-user-id: {{user}}
+
+### 5. Audit A: one finding with both detections and its attempts
+GET {{base}}/api/reports/{{auditA}}/findings/{{reportA.response.body.findings[0].id}}
+x-user-id: {{user}}
+
+### 6. Audit A: normal execution run, with trace
+GET {{base}}/api/reports/{{auditA}}/simulations/baseline
+x-user-id: {{user}}
+
+### 7. Audit A: the exploit run, with code and trace
+GET {{base}}/api/reports/{{auditA}}/simulations/{{reportA.response.body.findings[0].components.simulation.attempts[0].id}}
+x-user-id: {{user}}
+
+### 8. Audit B: a finding only RAG caught, two reverted attempts
+GET {{base}}/api/reports/{{auditB}}/comparison
+x-user-id: {{user}}
+
+### 9. Audit C: skipped by the gate
+GET {{base}}/api/reports/{{auditC}}/comparison
+x-user-id: {{user}}
+
+### 10. Audit D: still running, partial report
+GET {{base}}/api/reports/{{auditD}}
+x-user-id: {{user}}
+
+### 11. Audit D: comparison shows what is not available yet and why
+GET {{base}}/api/reports/{{auditD}}/comparison
+x-user-id: {{user}}
+
+### 12. Severity definitions
+GET {{base}}/api/reports/meta/severity-levels
+x-user-id: {{user}}
+
+### Access checks
+
+### Another user cannot read audit A (404)
+GET {{base}}/api/reports/{{auditA}}
+x-user-id: someone-else
+
+### No user header (401)
+GET {{base}}/api/reports/{{auditA}}
+
+### Ingest without the service key (401)
+POST {{base}}/internal/audits
+Content-Type: application/json
+
+{}
+
+### Ingest with a bad body (400)
+POST {{base}}/internal/audits/{{auditD}}/static
+x-service-key: {{key}}
+Content-Type: application/json
+
+{ "status": "failed", "findings": [] }

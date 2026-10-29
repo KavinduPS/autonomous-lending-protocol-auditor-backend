@@ -1,5 +1,17 @@
+# Dependencies
 node_modules
-# Keep environment variables out of version control
-.env
 
+# Build output
+dist
+
+# Environment variables (secrets stay out of git, commit .env.example instead)
+.env
+.env.*
+!.env.example
+
+# Generated Prisma client (recreate with: npx prisma generate)
 /src/generated/prisma
+
+# OS and editor files
+.DS_Store
+*.log
